@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+
+  db:
+    container_name: home_storage_database
+    image: mariadb:latest
+    environment:
+      - MYSQL_ROOT_PASSWORD=${HS_MYSQL_ROOT_PASS}
+      - MYSQL_USER=${HS_MYSQL_USER}
+      - MYSQL_PASSWORD=${HS_MYSQL_PASS}
+      - MYSQL_DATABASE=HomeStorage
+    restart: on-failure
+    ports:
+      - 127.0.0.1:3306:3306
+    # Test to see if the database is accessible. Backend waits for this with 'condition: service_healthy'
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    container_name: home_storage_flask
+    image: home_storage_flask:latest
+    build:
+      dockerfile: Dockerfiles/home_storage_flask.Dockerfile
+      context: ./
+      target: base
+    working_dir: /code
+    command: bash -c "flask run -h 0.0.0.0 -p 5000"
+    environment:
+      - HS_APP_CONFIG=/code/home_storage_web/sensitive/home_storage_app.cfg
+      - FLASK_ENV=development
+      - FLASK_APP=home_storage
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+    ports:
+      - 127.0.0.1:5000:5000
+    volumes:
+
+      # Main website files (so can edit locally)
+      - type: bind
+        source: ./home_storage
+        target: /code/home_storage
+
+      # Sensitive config files: s3_config.json / .dds-cli.json / dds_app.cfg
+      - type: bind
+        source: $HS_SENSITIVE_FILES
+        target: /code/home_storage/sensitive
+
+      # Logging outputs
+      - type: bind
+        source: $HS_LOG_DIR
+        target: /home_storage_web/logs
