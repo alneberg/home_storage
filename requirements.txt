@@ -1,3 +1,6 @@
-Flask==1.1.2
-PyMySQL==0.10.1
-werkzeug==2.0.2
+Flask
+PyMySQL
+pytz
+werkzeug
+flask_sqlalchemy
+flask_restful
